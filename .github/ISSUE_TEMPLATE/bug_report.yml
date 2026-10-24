@@ -1,0 +1,46 @@
+name: 错误或表单兼容问题
+description: 使用虚构数据描述问题；安全漏洞请按 SECURITY.md 私密报告。
+body:
+  - type: markdown
+    attributes:
+      value: 请勿上传密码库、备份、真实账号、内部地址、Cookie 或令牌。截图先替换为虚构内容。
+  - type: input
+    id: version
+    attributes:
+      label: LocalKey 版本
+      placeholder: "例如 0.2.0；源码构建可附提交号"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Windows 与目标软件
+      placeholder: "例如 Windows 11 x64、Edge；无需提供真实网站地址"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 使用方式
+      options:
+        - 自动填账号或密码
+        - 账号后 Tab 填密码
+        - 定点填写
+        - 复制粘贴
+        - 密码库或其他问题
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤与预期结果
+      description: 使用虚构账号；网页问题可提供离线最小 HTML。
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果和提示
+      description: 说明是否切换过焦点、是否已有部分输入。不要粘贴真实密码或密码库。
+    validations:
+      required: true

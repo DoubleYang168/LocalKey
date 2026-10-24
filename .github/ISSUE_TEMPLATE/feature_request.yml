@@ -1,0 +1,20 @@
+name: 功能建议
+description: 描述具体使用场景和预期操作。
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 想完成什么操作
+      description: 请使用虚构账号，不附上真实凭据或内部系统地址。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议的操作流程
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 已尝试的方式及可接受的限制
