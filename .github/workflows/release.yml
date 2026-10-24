@@ -1,0 +1,106 @@
+name: Publish Windows release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish (must match source)
+        required: true
+        default: '0.2.0'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      commit_sha: ${{ steps.version.outputs.commit_sha }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check release version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          $version = & ./scripts/Get-Version.ps1
+          $tag = if ($env:RELEASE_EVENT -eq 'workflow_dispatch') { "v$env:REQUESTED_VERSION" } else { $env:RELEASE_TAG }
+          if ($tag -cne "v$version") { throw 'Release version does not match AssemblyFileVersion.' }
+          if ($env:RELEASE_EVENT -eq 'workflow_dispatch') {
+            $existingTag = @(git ls-remote --tags origin "refs/tags/$tag")
+            if ($LASTEXITCODE -ne 0) { throw 'Could not check remote tags.' }
+            if ($existingTag.Count -ne 0) { throw 'Tag already exists; manual workflow does not overwrite tags.' }
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "commit_sha=$env:SOURCE_COMMIT" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - name: Check public files
+        run: ./scripts/check-publication.ps1
+      - name: Run core tests
+        run: ./test.ps1
+      - name: Build release assets
+        run: ./scripts/package.ps1
+      - name: Verify assets
+        run: ./scripts/check-publication.ps1 -CheckPackages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            artifacts/releases/*.exe
+            artifacts/releases/*.zip
+            artifacts/releases/SHA256SUMS.txt
+            artifacts/releases/RELEASE_NOTES.md
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release-assets
+      - name: Publish downloadable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.commit_sha }}
+          RELEASE_EVENT: ${{ github.event_name }}
+        run: |
+          if ($env:RELEASE_TAG -cne "v$env:RELEASE_VERSION") { throw 'Release version mismatch.' }
+          $version = $env:RELEASE_VERSION
+          $assets = @(
+            "release-assets/LocalKey-$version-windows.exe",
+            "release-assets/LocalKey-$version-windows.zip",
+            "release-assets/LocalKey-$version-source.zip",
+            'release-assets/SHA256SUMS.txt'
+          )
+          foreach ($asset in $assets) {
+            if (-not (Test-Path -LiteralPath $asset)) { throw "Missing asset: $asset" }
+          }
+          $arguments = @('release', 'create', $env:RELEASE_TAG, '--repo', $env:GH_REPO, '--target', $env:RELEASE_COMMIT, '--title', "LocalKey $version", '--notes-file', 'release-assets/RELEASE_NOTES.md')
+          if ($env:RELEASE_EVENT -eq 'push') { $arguments += '--verify-tag' }
+          $arguments += $assets
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release creation failed; existing releases are not overwritten.' }
