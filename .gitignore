@@ -1,0 +1,31 @@
+# Local builds, packages, test output and development history
+/dist/
+/artifacts/
+/.local/
+/tests/output/
+/bin/
+/obj/
+/.vs/
+/.idea/
+*.user
+*.suo
+*.pdb
+*.tmp
+*.previous
+*.log
+
+# Never publish a vault, its backup, or local credentials
+*.lkey*
+*.bak
+.env
+.env.*
+*.pfx
+*.p12
+*.key
+*.pem
+*.cer
+
+# OS/editor files
+Thumbs.db
+Desktop.ini
+.DS_Store
